@@ -91,6 +91,8 @@ else
 	if mft query -q -k MTD -s MTD_PARAMETERS -v /mnt/microsd
 	then
 		set STORAGE_AVAILABLE yes
+    else
+        echo "INFO [init] NO STORAGE_AVAILABLE"
 	fi
 fi
 

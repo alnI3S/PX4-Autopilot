@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2019 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,7 +34,7 @@
 /**
  * @file init.c
  *
- * Board-specific early startup code.  This file implements the
+ * PX4FMU-specific early startup code.  This file implements the
  * board_app_initialize() function that is called early by nsh during startup.
  *
  * Code here is run before the rcS script is invoked; it should start required
@@ -57,8 +57,16 @@
 #include <nuttx/config.h>
 #include <nuttx/board.h>
 #include <nuttx/spi/spi.h>
-#include <nuttx/sdio.h>
-#include <nuttx/mmcsd.h>
+
+#include <nuttx/spi/qspi.h>
+#include <nuttx/mtd/mtd.h>
+
+#include <nuttx/drivers/drivers.h>
+#include <nuttx/fs/fs.h>
+#include <nuttx/fs/fat.h>
+
+// #include <nuttx/arch/arm/src/stm32h7/stm32_qspi.h>
+
 #include <nuttx/analog/adc.h>
 #include <nuttx/mm/gran.h>
 #include <chip.h>
@@ -66,17 +74,24 @@
 #include <arch/board/board.h>
 #include "arm_internal.h"
 
-#include <px4_arch/io_timer.h>
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_board_led.h>
 #include <systemlib/px4_macros.h>
+#include <px4_arch/io_timer.h>
 #include <px4_platform_common/init.h>
 #include <px4_platform/gpio.h>
+#include <px4_platform/board_determine_hw_info.h>
 #include <px4_platform/board_dma_alloc.h>
+
+
+#include <mpu.h>
 
 # if defined(FLASH_BASED_PARAMS)
 #  include <parameters/flashparams/flashfs.h>
 #endif
+
+#include "chip.h"
+#include "stm32_qspi.h"
 
 /****************************************************************************
  * Pre-Processor Definitions
@@ -96,6 +111,7 @@ extern void led_init(void);
 extern void led_on(int led);
 extern void led_off(int led);
 __END_DECLS
+
 
 /************************************************************************************
  * Name: board_peripheral_reset
@@ -159,6 +175,11 @@ stm32_boardinitialize(void)
 	const uint32_t gpio[] = PX4_GPIO_INIT_LIST;
 	px4_gpio_init(gpio, arraySize(gpio));
 
+	board_control_spi_sensors_power_configgpio(); //?
+
+	/* Turn bluetooth off by default (no mavlink support yet) */
+	// px4_arch_gpiowrite(GPIO_RF_SWITCH, 0);
+
 	/* configure SPI interfaces */
 
 	stm32_spiinitialize();
@@ -167,9 +188,8 @@ stm32_boardinitialize(void)
 
 	stm32_usbinitialize();
 
-	/* configure external memory*/
-	flash_w25q128_init();
-
+	/* configure QSPI interface for W25N01GV external Nand Flash memory */
+	// flash_w25n01_init();
 }
 
 /****************************************************************************
@@ -200,9 +220,16 @@ stm32_boardinitialize(void)
 
 __EXPORT int board_app_initialize(uintptr_t arg)
 {
+	/* Power on Interfaces */
+	board_control_spi_sensors_power(true, 0xffff);
+
 	/* Need hrt running before using the ADC */
 
 	px4_platform_init();
+
+	/* configure SPI interfaces */
+
+	stm32_spiinitialize();
 
 	/* configure the DMA allocator */
 
@@ -224,50 +251,69 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 		led_on(LED_RED);
 	}
 
+	/* Get the SPI port for the IMU */
+	struct spi_dev_s *spi4 = stm32_spibus_initialize(4);
 
-#ifdef CONFIG_MMCSD
-	int ret = stm32_sdio_initialize();
-
-	if (ret != OK) {
-		led_on(LED_RED);
+	if (!spi4) {
+		syslog(LOG_ERR, "[boot] FAILED to initialize SPI port %d\n", 4);
+		led_on(LED_BLUE);
 	}
-
-#endif
 
 	up_udelay(20);
 
-	/* W25128 external flash memory:
-	 * 0x90030000 - 0x9003FFFF -> 64KB for FlashFS
-	 * 0x90100000 - 0x902FFFFF -> 2MB for PX4 firmware
-	 */
+	// TODO cf RM0433 p130 for memory map
+	// QUADSPI: 0x90000000 - 0x9FFFFFFF
 
-	/* Page calculator for W25Q128:
-	 * page = (address - 0x90000000)/0x1000 (sector size is 0x1000 (4096 bytes))
-	 * examples:
-	 * 1) address = 0x90001000, page = (0x90001000 - 0x90000000)/0x1000 = 0x1
-	 * 2) address = 0x90200000, page = (0x90200000 - 0x90000000)/0x1000 = 0x200
-	 * 3) address = 0x90200100, page = (0x90200100 - 0x90000000)/0x1000 = 0x201
-	 * 4) address = 0x90f80000, page = (0x90f80000 - 0x90000000)/0x1000 = 0xF80
-	 */
+    /* Initialize the W25N01GV MTD driver */
+    // TODO: px4/common/px4_mtd.cpp ramtron_attach() ...
+    // TODO: vs
+    // TODOvs nuttx example: nuttx/boards/arm/stm32/stm32f429i-disco/src/stm32_bringup.c ...
+// #if defined(CONFIG_STM32H7_QUADSPI)
+//     struct qspi_dev_s *qspi;
+//   	/* Get the SPI port */
+//     syslog(LOG_INFO, "[boot] Initializing QuadSPI port 0\n");
+//     qspi = stm32h7_qspi_initialize(0);
+//     if (!qspi) {
+//         syslog(LOG_ERR, "[boot] ERROR: Failed to initialize SPI port 1\n");
+//         return -ENODEV;
+//     }
+//     syslog(LOG_INFO, "[boot] Bind SPI to the SPI flash driver\n");
+    /* Now bind the SPI interface to the W25n01GV SPI FLASH driver.  This
+   * is a FLASH device that has been added external to the board (i.e.
+   * the board does not ship from STM with any on-board FLASH.
+   */
+// #if defined(CONFIG_MTD) && defined(CONFIG_MTD_W25N01GV)
+//     struct mtd_dev_s *mtd;
+//     syslog(LOG_INFO, "Bind SPI to the SPI flash driver\n");
+
+//     mtd = w25n01gv_initialize(qspi, true);
+//     if (!mtd) {
+//         syslog(LOG_ERR, "[boot] ERROR: Failed to bind SPI port 1 to the SPI FLASH driver\n");
+//     } else {
+//         syslog(LOG_INFO, "[boot] Successfully bound SPI port 1 to the SPI FLASH driver\n");
+//         /* Get the geometry of the FLASH device */
+//         // ret = mtd->ioctl(mtd, MTDIOC_GEOMETRY, (unsigned long)((uintptr_t)&geo));
+//         // if (ret < 0) {
+//         //     ferr("ERROR: mtd->ioctl failed: %d\n", ret);
+//         //     return ret;
+//         // }
+// 	}
+
+// 	// FTL initialization
+//     int ret = OK;
+//     ret = ftl_initialize(0, mtd);
+//     if (ret < 0) {
+// 		syslog(LOG_ERR, "ERROR: Failed to initialize the FTL layer\n");
+// 		return ret;
+// 	}
+
+// #endif /* CONFIG_MTD */
+// #endif /* CONFIG_STM32H7_QUADSPI */
+
 
 #if defined(FLASH_BASED_PARAMS)
 	static sector_descriptor_t params_sector_map[] = {
-		{0xF80, 4096, 0x90f80000},
-		{0xF81, 4096, 0x90f81000},
-		{0xF82, 4096, 0x90f82000},
-		{0xF83, 4096, 0x90f83000},
-		{0xF84, 4096, 0x90f84000},
-		{0xF85, 4096, 0x90f85000},
-		{0xF86, 4096, 0x90f86000},
-		{0xF87, 4096, 0x90f87000},
-		{0xF88, 4096, 0x90f88000},
-		{0xF89, 4096, 0x90f89000},
-		{0xF8A, 4096, 0x90f8A000},
-		{0xF8B, 4096, 0x90f8B000},
-		{0xF8C, 4096, 0x90f8C000},
-		{0xF8D, 4096, 0x90f8D000},
-		{0xF8E, 4096, 0x90f8E000},
-		{0xF8F, 4096, 0x90f8F000},
+		{15, 128 * 1024, 0x081E0000},
 		{0, 0, 0},
 	};
 

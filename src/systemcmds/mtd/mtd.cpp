@@ -61,7 +61,12 @@
 
 #include <nuttx/spi/spi.h>
 #include <nuttx/mtd/mtd.h>
+#ifdef CONFIG_FS_FAT
+#include <nuttx/fs/fat.h>
+#else
 #include <nuttx/fs/nxffs.h>
+#endif
+
 #include <nuttx/fs/ioctl.h>
 #include <nuttx/drivers/drivers.h>
 

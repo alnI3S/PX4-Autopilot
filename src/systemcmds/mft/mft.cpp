@@ -80,7 +80,7 @@ static void print_usage()
 {
 	PRINT_MODULE_DESCRIPTION("Utility interact with the manifest");
 
-	PRINT_MODULE_USAGE_NAME("mfd", "command");
+	PRINT_MODULE_USAGE_NAME("mft", "command");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("query", "Returns true if not existed");
 }
 
