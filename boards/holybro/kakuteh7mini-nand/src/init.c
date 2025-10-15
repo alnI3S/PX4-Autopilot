@@ -56,9 +56,11 @@
 
 #include <nuttx/config.h>
 #include <nuttx/board.h>
+#include <arch/chip/chip.h>
 #include <nuttx/spi/spi.h>
 
 #include <nuttx/spi/qspi.h>
+// #include <nuttx/boards/arm/stm32h7/stm32h7_qspi.h>
 #include <nuttx/mtd/mtd.h>
 
 #include <nuttx/drivers/drivers.h>
@@ -268,15 +270,39 @@ __EXPORT int board_app_initialize(uintptr_t arg)
     // TODO: px4/common/px4_mtd.cpp ramtron_attach() ...
     // TODO: vs
     // TODOvs nuttx example: nuttx/boards/arm/stm32/stm32f429i-disco/src/stm32_bringup.c ...
-// #if defined(CONFIG_STM32H7_QUADSPI)
+// #if defined(CONFIG_STM32H7_QUADSPI) && defined(CONFIG_MTD) && defined(CONFIG_MTD_W25N01GV)
 //     struct qspi_dev_s *qspi;
 //   	/* Get the SPI port */
 //     syslog(LOG_INFO, "[boot] Initializing QuadSPI port 0\n");
 //     qspi = stm32h7_qspi_initialize(0);
 //     if (!qspi) {
 //         syslog(LOG_ERR, "[boot] ERROR: Failed to initialize SPI port 1\n");
-//         return -ENODEV;
+// 		led_on(LED_BLUE);
+//         // return -ENODEV;
+//     } else {
+// 		struct mtd_dev_s *mtd;
+//         syslog(LOG_INFO, "[boot] Binding QSPI to the W25N01GV MTD driver\n");
+
+//         mtd = w25n01gv_initialize(qspi, true);
+
+// 		if (!mtd) {
+//             syslog(LOG_ERR, "[boot] ERROR: Failed to bind QSPI port 0 to the W25N01GV MTD driver\n");
+//             led_on(LED_BLUE);
+//         } else {
+//             syslog(LOG_INFO, "[boot] Successfully bound QSPI port 0 to the W25N01GV MTD driver\n");
+
+//             /* Initialize FTL */
+//             int ret = ftl_initialize(0, mtd);
+//             if (ret < 0) {
+//                 syslog(LOG_ERR, "[boot] ERROR: Failed to initialize the FTL layer: %d\n", ret);
+//                 led_on(LED_BLUE);
+//             }
+//         }
 //     }
+// #endif /* CONFIG_STM32H7_QUADSPI && CONFIG_MTD && CONFIG_MTD_W25N01GV */
+
+
+		// syslog(LOG_INFO, "[boot] Successfully initialized SPI port 1\n");
 //     syslog(LOG_INFO, "[boot] Bind SPI to the SPI flash driver\n");
     /* Now bind the SPI interface to the W25n01GV SPI FLASH driver.  This
    * is a FLASH device that has been added external to the board (i.e.
