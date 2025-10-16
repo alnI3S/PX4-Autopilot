@@ -56,19 +56,8 @@
 
 #include <nuttx/config.h>
 #include <nuttx/board.h>
-#include <arch/chip/chip.h>
 #include <nuttx/spi/spi.h>
-
-#include <nuttx/spi/qspi.h>
-// #include <nuttx/boards/arm/stm32h7/stm32h7_qspi.h>
-#include <nuttx/mtd/mtd.h>
-
-#include <nuttx/drivers/drivers.h>
-#include <nuttx/fs/fs.h>
-#include <nuttx/fs/fat.h>
-
-// #include <nuttx/arch/arm/src/stm32h7/stm32_qspi.h>
-
+#include <nuttx/sdio.h>
 #include <nuttx/analog/adc.h>
 #include <nuttx/mm/gran.h>
 #include <chip.h>
@@ -76,11 +65,24 @@
 #include <arch/board/board.h>
 #include "arm_internal.h"
 
+#include <arch/chip/chip.h>
+#include <nuttx/spi/spi.h>
+
+// #include <nuttx/spi/qspi.h>
+// #include <nuttx/boards/arm/stm32h7/stm32h7_qspi.h>
+// #include <nuttx/mtd/mtd.h>
+
+// #include <nuttx/drivers/drivers.h>
+// #include <nuttx/fs/fs.h>
+// #include <nuttx/fs/fat.h>
+
+// #include <nuttx/arch/arm/src/stm32h7/stm32_qspi.h>
+
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_board_led.h>
 #include <systemlib/px4_macros.h>
 #include <px4_arch/io_timer.h>
-#include <px4_platform_common/init.h>
+#include <px4_platform_common/init.h> // TODO: check if needed
 #include <px4_platform/gpio.h>
 #include <px4_platform/board_determine_hw_info.h>
 #include <px4_platform/board_dma_alloc.h>
@@ -92,8 +94,8 @@
 #  include <parameters/flashparams/flashfs.h>
 #endif
 
-#include "chip.h"
-#include "stm32_qspi.h"
+// #include "chip.h"
+// #include "stm32_qspi.h"
 
 /****************************************************************************
  * Pre-Processor Definitions
