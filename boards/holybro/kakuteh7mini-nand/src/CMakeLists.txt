@@ -31,14 +31,19 @@
 #
 ############################################################################
 if("${PX4_BOARD_LABEL}" STREQUAL  "bootloader")
+	add_compile_definitions(BOOTLOADER)
 	add_library(drivers_board
 		bootloader_main.c
+		init.c
 		usb.c
+		timer_config.cpp
 	)
 	target_link_libraries(drivers_board
 		PRIVATE
 			nuttx_arch # sdio
 			nuttx_drivers # sdio
+			px4_layer #gpio
+			arch_io_pins # iotimer
 			bootloader
 	)
 	target_include_directories(drivers_board PRIVATE ${PX4_SOURCE_DIR}/platforms/nuttx/src/bootloader/common)
@@ -49,9 +54,10 @@ else()
 		i2c.cpp
 		init.c
 		led.c
+		mtd.cpp # new
 		spi.cpp
-		qspi.c
-		flash_w25n01.c
+		# qspi.c
+		# flash_w25n01.c
 		timer_config.cpp
 		usb.c
 	)
@@ -61,7 +67,6 @@ else()
 		PRIVATE
 			arch_io_pins
 			arch_spi
-			arch_board_hw_info
 			drivers__led # drv_led_start
 			nuttx_arch # sdio
 			nuttx_drivers # sdio

@@ -58,7 +58,7 @@
  *
  * So we have these clock source available within the STM32
  *
- *   HSI: 16 MHz RC factory-trimmed
+ *   HSI:  64 MHz RC factory-trimmed
  *   HSE:  8 MHz crystal for HSE
  */
 
@@ -79,7 +79,7 @@
  *     1 <= PLLM <= 63
  *     4 <= PLLN <= 512
  *   150 MHz <= PLL_VCOL <= 420MHz
- *   192 MHz <= PLL_VCOH <= 836MHz
+ *   192 MHz <= PLL_VCOH <= 960MHz
  *
  * SYSCLK  = PLL_VCO / PLLP
  * CPUCLK  = SYSCLK / D1CPRE
@@ -96,7 +96,7 @@
 
 /* PLL1, wide 4 - 8 MHz input, enable DIVP, DIVQ, DIVR
  *
- *   PLL1_VCO = (8,000,000 / 1) * 120 = 960 MHz
+ *   PLL1_VCO = (8,000,000 / 1) * 100 = 960 MHz
  *
  *   PLL1P = PLL1_VCO/2  = 960 MHz / 2   = 480 MHz
  *   PLL1Q = PLL1_VCO/4  = 960 MHz / 4   = 240 MHz
@@ -119,7 +119,14 @@
 #define STM32_PLL1Q_FREQUENCY    (STM32_VCO1_FREQUENCY / 4)
 #define STM32_PLL1R_FREQUENCY    (STM32_VCO1_FREQUENCY / 8)
 
-/* PLL2 */
+/* PLL2
+ *
+ * PLL2VCO = (8,000,000 / 2) * 48 = 192 MHz
+ *
+ * PLL2P = PLL2_VCO/2 = 192 / 2 = 96 MHz
+ * PLL2Q = PLL2_VCO/2 = 192 / 4 = 48 MHz
+ * PLL2R = PLL2_VCO/2 = 192 / 2 = 96 MHz
+ */
 
 #define STM32_PLLCFG_PLL2CFG     (RCC_PLLCFGR_PLL2VCOSEL_WIDE | \
 				  RCC_PLLCFGR_PLL2RGE_4_8_MHZ | \
@@ -129,7 +136,7 @@
 #define STM32_PLLCFG_PLL2M       RCC_PLLCKSELR_DIVM2(2)
 #define STM32_PLLCFG_PLL2N       RCC_PLL2DIVR_N2(48)
 #define STM32_PLLCFG_PLL2P       RCC_PLL2DIVR_P2(2)
-#define STM32_PLLCFG_PLL2Q       RCC_PLL2DIVR_Q2(2)
+#define STM32_PLLCFG_PLL2Q       RCC_PLL2DIVR_Q2(4)
 #define STM32_PLLCFG_PLL2R       RCC_PLL2DIVR_R2(2)
 
 #define STM32_VCO2_FREQUENCY     ((STM32_HSE_FREQUENCY / 2) * 48)
@@ -137,7 +144,14 @@
 #define STM32_PLL2Q_FREQUENCY    (STM32_VCO2_FREQUENCY / 2)
 #define STM32_PLL2R_FREQUENCY    (STM32_VCO2_FREQUENCY / 2)
 
-/* PLL3 */
+/* PLL3
+ *
+ * PLL3VCO = (8,000,000 / 2) * 48 = 192 MHz
+ *
+ * PLL3P = PLL3_VCO/2 = 192 / 2 = 96 MHz
+ * PLL3Q = PLL3_VCO/2 = 192 / 4 = 48 MHz
+ * PLL3R = PLL3_VCO/2 = 192 / 2 = 96 MHz
+ */
 
 #define STM32_PLLCFG_PLL3CFG    (RCC_PLLCFGR_PLL3VCOSEL_WIDE | \
 				 RCC_PLLCFGR_PLL3RGE_4_8_MHZ | \
@@ -194,7 +208,7 @@
 
 /* Timer clock frequencies */
 
-/* Timers driven from APB1 will be twice PCLK1 */
+/* Timers driven from APB1 will be twice PCLK1 = 240 MHz */
 
 #define STM32_APB1_TIM2_CLKIN   (2*STM32_PCLK1_FREQUENCY)
 #define STM32_APB1_TIM3_CLKIN   (2*STM32_PCLK1_FREQUENCY)
@@ -206,7 +220,7 @@
 #define STM32_APB1_TIM13_CLKIN  (2*STM32_PCLK1_FREQUENCY)
 #define STM32_APB1_TIM14_CLKIN  (2*STM32_PCLK1_FREQUENCY)
 
-/* Timers driven from APB2 will be twice PCLK2 */
+/* Timers driven from APB2 will be twice PCLK2 = 240 MHz */
 
 #define STM32_APB2_TIM1_CLKIN   (2*STM32_PCLK2_FREQUENCY)
 #define STM32_APB2_TIM8_CLKIN   (2*STM32_PCLK2_FREQUENCY)
@@ -216,42 +230,43 @@
 
 /* Kernel Clock Configuration
  *
- * Note: look at Table 54 in ST Manual
+ * Note: look at Table 60 in ST RM0433:354
  */
 
 /* I2C123 clock source */
 
-#define STM32_RCC_D2CCIP2R_I2C123SRC RCC_D2CCIP2R_I2C123SEL_HSI
+#define STM32_RCC_D2CCIP2R_I2C123SRC RCC_D2CCIP2R_I2C123SEL_HSI		/* HSI = 64 MHz */
+// #define STM32_RCC_D2CCIP2R_I2C123SRC RCC_D2CCIP2R_I2C123SEL_PCLK1 	/* PCLK1 = 120 MHz */
 
 /* I2C4 clock source */
 
-#define STM32_RCC_D3CCIPR_I2C4SRC    RCC_D3CCIPR_I2C4SEL_HSI
+// #define STM32_RCC_D3CCIPR_I2C4SRC    RCC_D3CCIPR_I2C4SEL_HSI
 
 /* SPI123 clock source */
 
-#define STM32_RCC_D2CCIP1R_SPI123SRC RCC_D2CCIP1R_SPI123SEL_PLL2
+#define STM32_RCC_D2CCIP1R_SPI123SRC RCC_D2CCIP1R_SPI123SEL_PLL2	/* PLL2P = 96 MHz */
 
 /* SPI45 clock source */
-
-#define STM32_RCC_D2CCIP1R_SPI45SRC  RCC_D2CCIP1R_SPI45SEL_PLL2
+// TODO: 2 - 40 MHz for BMI270
+#define STM32_RCC_D2CCIP1R_SPI45SRC  RCC_D2CCIP1R_SPI45SEL_PLL2		/* PLL2Q = 48 MHz */
 
 /* SPI6 clock source */
 
-#define STM32_RCC_D3CCIPR_SPI6SRC    RCC_D3CCIPR_SPI6SEL_PLL2
+// #define STM32_RCC_D3CCIPR_SPI6SRC    RCC_D3CCIPR_SPI6SEL_PLL2
 
 /* USB 1 and 2 clock source */
 
-#define STM32_RCC_D2CCIP2R_USBSRC    RCC_D2CCIP2R_USBSEL_PLL3
+#define STM32_RCC_D2CCIP2R_USBSRC    RCC_D2CCIP2R_USBSEL_PLL3	/* PLL3Q = 48 MHz */
 
 /* ADC 1 2 3 clock source */
 
-#define STM32_RCC_D3CCIPR_ADCSRC     RCC_D3CCIPR_ADCSEL_PLL2
+#define STM32_RCC_D3CCIPR_ADCSRC     RCC_D3CCIPR_ADCSEL_PLL2	/* PLL2P = 96 MHz */
 
 /* FDCAN 1 2 clock source */
 
-#define STM32_RCC_D2CCIP1R_FDCANSEL  RCC_D2CCIP1R_FDCANSEL_HSE   /* FDCAN 1 2 clock source */
+// #define STM32_RCC_D2CCIP1R_FDCANSEL  RCC_D2CCIP1R_FDCANSEL_HSE   /* FDCAN 1 2 clock source */
 
-#define STM32_FDCANCLK               STM32_HSE_FREQUENCY
+// #define STM32_FDCANCLK               STM32_HSE_FREQUENCY
 
 /* FLASH wait states
  *
@@ -276,8 +291,14 @@
 #define BOARD_FLASH_WAITSTATES 2
 
 /* LED definitions ******************************************************************/
-/* The holybro KakuteH7 board has three, LED_GREEN a Green LED, LED_BLUE
- * a Blue LED and LED_RED a Red LED, that can be controlled by software.
+/* The holybro KakuteH7 Mini Nand (v1.3) board has two, LED_GREEN a Green LED and LED_BLUE
+ * a Blue LED.
+ * For now only Blue LED can be controlled by software on port PC2.
+ * I don't know which port the Green LED is wired to. I've tested: PC3, PC13,
+ * PA1, PA3, PE3, PE0, PC4.
+ * other ports not tested: PB5, PB2, PE8, PE9, PD7, PE10, PE11, PE12, PE13,
+ * PD2, PD3, PD4, PE14, PE15, PA15, PC11, PC12, PD15, PD14, PC10, PA8, PD11,
+ * PD10, PD13.
  *
  * If CONFIG_ARCH_LEDS is not defined, then the user can control the LEDs in any way.
  * The following definitions are used to access individual LEDs.
@@ -285,10 +306,10 @@
 
 /* LED index values for use with board_userled() */
 
-#define BOARD_LED1        0
-#define BOARD_NLEDS       1
+#define BOARD_LED1        0		// Blue is near USB port
+#define BOARD_NLEDS       1		// Number of LEDs
 
-#define BOARD_LED_RED     BOARD_LED1
+#define BOARD_LED_BLUE     BOARD_LED1
 
 /* LED bits for use with board_userled_all() */
 
@@ -396,19 +417,20 @@
 
 /* QSPI configuration */
 
-// These macros are already defined in menuconfig
-#define CONFIG_STM32H7_QUADSPI
-#define CONFIG_STM32H7_QSPI_FLASH_SIZE		134217728 /* bytes */
-#define CONFIG_STM32H7_QSPI_FIFO_THESHOLD 	4
-#define CONFIG_STM32H7_QSPI_CSHT			1 /* HIGH TIME 1 CYCLE */
+// /* Don't reuse these macros with menuconfig. I don't know why but
+//  * it will hang the build process. */
+// #define CONFIG_STM32H7_QUADSPI
+// #define CONFIG_STM32H7_QSPI_FLASH_SIZE		134217728 /* bytes */
+// #define CONFIG_STM32H7_QSPI_FIFO_THESHOLD 	4
+// #define CONFIG_STM32H7_QSPI_CSHT			1 /* HIGH TIME 1 CYCLE */
 
-// these macros are defined here
-#define GPIO_QSPI_CS	GPIO_QUADSPI_BK1_NCS_3	/* PB10 */
-#define GPIO_QSPI_IO0	GPIO_QUADSPI_BK1_IO0_3	/* PD11 */
-#define GPIO_QSPI_IO1	GPIO_QUADSPI_BK1_IO1_3	/* PD12 */
-#define GPIO_QSPI_IO2	GPIO_QUADSPI_BK1_IO2_1	/* PE2 */
-#define GPIO_QSPI_IO3	GPIO_QUADSPI_BK1_IO3_2	/* PD13 */
-#define GPIO_QSPI_SCK	GPIO_QUADSPI_CLK_1		/* PB2 */
+// // these macros are defined here
+// #define GPIO_QSPI_CS	GPIO_QUADSPI_BK1_NCS_3	/* PB10 */
+// #define GPIO_QSPI_IO0	GPIO_QUADSPI_BK1_IO0_3	/* PD11 */
+// #define GPIO_QSPI_IO1	GPIO_QUADSPI_BK1_IO1_3	/* PD12 */
+// #define GPIO_QSPI_IO2	GPIO_QUADSPI_BK1_IO2_1	/* PE2 */
+// #define GPIO_QSPI_IO3	GPIO_QUADSPI_BK1_IO3_2	/* PD13 */
+// #define GPIO_QSPI_SCK	GPIO_QUADSPI_CLK_1		/* PB2 */
 
 /* OTGFS */
 

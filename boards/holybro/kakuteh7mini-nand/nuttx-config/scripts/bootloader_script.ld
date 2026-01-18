@@ -36,7 +36,8 @@
 
 /* The KakuteH7 uses an STM32H743VI has 2048Kb of main FLASH memory.
  * The flash memory is partitioned into a User Flash memory and a System
- * Flash memory. Each of these memories has two banks:
+ * Flash memory. Each of these memories has two banks
+ * (see RM0433 p. 153 Table 15 "Flash memory organization"):
  *
  *   1) User Flash memory:
  *
@@ -52,24 +53,33 @@
  *
  * In the STM32H743VI, two different boot spaces can be selected through
  * the BOOT pin and the boot base address programmed in the BOOT_ADD0 and
- * BOOT_ADD1 option bytes:
+ * BOOT_ADD1 option bytes (see datasheet p. 27 "Boot modes"):
  *
  *   1) BOOT=0: Boot address defined by user option byte BOOT_ADD0[15:0].
  *      ST programmed value: Flash memory at 0x0800:0000
  *   2) BOOT=1: Boot address defined by user option byte BOOT_ADD1[15:0].
  *      ST programmed value: System bootloader at 0x1FF0:0000
+ *      Note: So confuse:
+ *          RM0433 p. 138 Table 9. Boot modes: as above.
+ *          AN2606 p. 40 The embedded bootloader (programmed by ST
+  *             during production.):
+ *              ID: 0x92,
+ *              Memory location: 0x1FF1E7FE
+ *          AN2606 p. 297 Bootloader configuration, system memory :
+ *              122 KB, starting from address 0x1FF00000 contain the bootloader firmware.
+ *              The bootloader start address is 0x1FF09800 -> not 0x1FF0:0000?
  *
  * The KakuteH7 has a switch on board, the BOOT0 pin is at ground so by default,
  * the STM32 will boot to address 0x0800:0000 in FLASH unless the switch is
  * depressed, then the boot will be from 0x1FF0:0000
  *
- * The STM32H743VI also has 1024Kb of data SRAM.
+ * The STM32H743VI also has 1024Kb of data SRAM (datasheet p. 1).
  * SRAM is split up into several blocks and into three power domains:
  *
  *   1) TCM SRAMs are dedicated to the Cortex-M7 and are accessible with
  *      0 wait states by the Cortex-M7 and by MDMA through AHBS slave bus
  *
- *      1.1) 128Kb of DTCM-RAM beginning at address 0x2000:0000
+ *      1.1) 128Kb (16 KB) of DTCM-RAM beginning at address 0x2000:0000
  *
  *           The DTCM-RAM is organized as 2 x 64Kb DTCM-RAMs on 2 x 32 bit
  *           DTCM ports. The DTCM-RAM could be used for critical real-time

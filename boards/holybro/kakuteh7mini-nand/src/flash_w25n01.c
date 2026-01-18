@@ -64,7 +64,7 @@
  */
 
 // struct w25n01gv_dev_s w25n01_dev;
-struct qspi_dev_s *qspi;
+// struct qspi_dev_s *qspi;
 
 /************************************************************************************
  * Public Functions
@@ -72,39 +72,36 @@ struct qspi_dev_s *qspi;
 
 void flash_w25n01_init(void)
 {
-	int ret = OK;
+	struct qspi_dev_s *qspi;
+	/* Get the SPI port */
+    syslog(LOG_INFO, "[boot] Initializing QuadSPI port 0\n");
+	// int ret = OK;
 	qspi = stm32h7_qspi_initialize(0); // only one QSPI interface on KakuteH7Mini
-#if defined(CONFIG_MTD) && defined(CONFIG_MTD_W25N01GV)
-    struct mtd_dev_s *mtd;
-	syslog(LOG_INFO, "Bind SPI to the SPI flash driver\n");
-
-    mtd = w25n01gv_initialize(qspi, true);
-    if (!mtd) {
-        syslog(LOG_ERR, "[boot] ERROR: Failed to bind SPI port 1 to the SPI FLASH driver\n");
-    } else {
-        syslog(LOG_INFO, "[boot] Successfully bound SPI port 1 to the SPI FLASH driver\n");
-        /* Get the geometry of the FLASH device */
-        // ret = mtd->ioctl(mtd, MTDIOC_GEOMETRY, (unsigned long)((uintptr_t)&geo));
-        // if (ret < 0) {
-        //     ferr("ERROR: mtd->ioctl failed: %d\n", ret);
-        //     return ret;
-        // }
-	}
-
-	// FTL initialization
-    ret = ftl_initialize(0, mtd);
-	if (ret < 0) {
-		syslog(LOG_ERR, "ERROR: Failed to initialize the FTL layer\n");
+	if (!qspi) {
+		syslog(LOG_ERR, "[boot] ERROR: Failed to initialize SPI port 1\n");
+		// led_on(LED_BLUE);
 		return;
-	}
-	syslog(LOG_INFO, "FTL initialized\n");
+	} else {
+		struct mtd_dev_s *mtd;
+		syslog(LOG_INFO, "[boot] Binding QSPI to the W25N01GV MTD driver\n");
 
-	// // Mount the file system
-	// ret = fat_register("/dev/mtdblock0", "/fs/mtd", 0, false);
-	// if (ret < 0) {
-	// 	syslog(LOG_ERR, "ERROR: Failed to mount the FAT filesystem on the W25N01GV flash: %d\n", ret);
-	// }
-	// syslog(LOG_INFO, "FAT filesystem mounted on the W25N01GV flash\n");
-#endif /* CONFIG_MTD */
+		mtd = w25n01gv_initialize(qspi, true);
+
+		if (!mtd) {
+			syslog(LOG_ERR, "[boot] ERROR: Failed to bind QSPI port 0 to the W25N01GV MTD driver\n");
+			// led_on(LED_BLUE);
+			return;
+		} else {
+			syslog(LOG_INFO, "[boot] Successfully bound QSPI port 0 to the W25N01GV MTD driver\n");
+
+			/* Initialize FTL */
+			int ret = ftl_initialize(0, mtd);
+			if (ret < 0) {
+				syslog(LOG_ERR, "[boot] ERROR: Failed to initialize the FTL layer: %d\n", ret);
+				// led_on(LED_BLUE);
+				return;
+			}
+		}
+	}
 
 }

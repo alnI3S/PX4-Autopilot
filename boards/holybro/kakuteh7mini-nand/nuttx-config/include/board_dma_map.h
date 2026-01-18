@@ -45,4 +45,4 @@
 #define DMAMAP_USART2_RX   DMAMAP_DMA12_USART2RX_1 /* DMA2 */
 
 /* In stm32h7x3xx_dma.h (or your DMA mapping header) */
-#define DMAMAP_QUADSPI   5   /* DMAMUX request ID for QUADSPI are you sure? */
+// #define DMAMAP_QUADSPI   DMAMUX2   /* DMAMUX request ID for QUADSPI are you sure? */

@@ -62,21 +62,23 @@ extern "C" {
 	struct mtd_dev_s *ramtron_initialize(FAR struct spi_dev_s *dev);
 	struct mtd_dev_s *mtd_partition(FAR struct mtd_dev_s *mtd,
 					off_t firstblock, off_t nblocks);
+	struct mtd_dev_s *w25n_initialize(FAR struct spi_dev_s *dev, uint32_t devid);
+	struct mtd_dev_s *w25n01_initialize(FAR struct spi_dev_s *dev, uint32_t devid);
 }
 static int num_instances = 0;
 static int total_blocks = 0;
 static mtd_instance_s *instances[MAX_MTD_INSTANCES] = {};
 
-
-static int ramtron_attach(mtd_instance_s &instance)
+static int spi_attach(mtd_instance_s &instance)
 {
-#if !defined(CONFIG_MTD_RAMTRON)
-	PX4_ERR("Misconfiguration CONFIG_MTD_RAMTRON not set");
-	return ENXIO;
-#else
+// #if !defined(CONFIG_MTD_RAMTRON)
+// 	PX4_ERR("Misconfiguration CONFIG_MTD_RAMTRON not set");
+// 	return ENXIO;
+// #else
 
-	/* start the RAMTRON driver at 30MHz */
 
+#if defined(CONFIG_MTD_RAMTRON)
+	/* start the MTD RAMTRON driver at 30MHz */
 	unsigned long spi_speed_hz = 30'000'000;
 
 	for (int i = 0; spi_speed_hz > 0; i++) {
@@ -112,12 +114,25 @@ static int ramtron_attach(mtd_instance_s &instance)
 		px4_usleep(10000);
 	}
 
+#elif defined(CONFIG_MTD_W25N01)
+	struct spi_dev_s *spi = px4_spibus_initialize(px4_find_spi_bus(instance.devid));
+	instance.mtd_dev = w25n01_initialize(spi, 0); // WIP, devid 0: only one device on this port.
+#elif defined(CONFIG_MTD_W25N)
+	struct spi_dev_s *spi = px4_spibus_initialize(px4_find_spi_bus(instance.devid));
+	instance.mtd_dev = w25n_initialize(spi, 0); // WIP, devid 0: only one device on this port.
+#else
+		PX4_ERR("No MTD driver configured");
+		return -ENXIO;
+#endif
+
+
 	/* if last attempt is still unsuccessful, abort */
 	if (instance.mtd_dev == nullptr) {
 		PX4_ERR("failed to initialize mtd driver");
 		return -EIO;
 	}
 
+#if defined(CONFIG_MTD_RAMTRON)
 	int ret = instance.mtd_dev->ioctl(instance.mtd_dev, MTDIOC_SETSPEED, spi_speed_hz);
 
 	if (ret != OK) {
@@ -126,9 +141,9 @@ static int ramtron_attach(mtd_instance_s &instance)
 		// not run correctly. So changed to PX4_WARN.
 		PX4_WARN("failed to set bus speed");
 	}
+#endif
 
 	return 0;
-#endif
 }
 
 
@@ -175,8 +190,11 @@ static int at24xxx_attach(mtd_instance_s &instance)
 }
 
 
+// int px4_mtd_get_geometry(const mtd_instance_s *instance, unsigned long *blocksize, unsigned long *erasesize,
+// 			 unsigned long *neraseblocks,
+// 			 unsigned *blkpererase, unsigned *nblocks, unsigned *partsize)
 int px4_mtd_get_geometry(const mtd_instance_s *instance, unsigned long *blocksize, unsigned long *erasesize,
-			 unsigned long *neraseblocks,
+			 unsigned long *neraseblocks, unsigned *nbadblocks,		// **NEW**
 			 unsigned *blkpererase, unsigned *nblocks, unsigned *partsize)
 {
 	/* Get the geometry of the FLASH device */
@@ -201,7 +219,10 @@ int px4_mtd_get_geometry(const mtd_instance_s *instance, unsigned long *blocksiz
 
 	*blkpererase = geo.erasesize / geo.blocksize;
 	*nblocks     = (geo.neraseblocks / instance->n_partitions_current) * *blkpererase;
+
 	*partsize    = *nblocks * geo.blocksize;
+
+	*nbadblocks = geo.nbadblocks;		// **NEW**
 
 	return ret;
 }
@@ -212,9 +233,11 @@ int px4_mtd_get_geometry(const mtd_instance_s *instance, unsigned long *blocksiz
 ssize_t px4_mtd_get_partition_size(const mtd_instance_s *instance, const char *partname)
 {
 	unsigned long blocksize, erasesize, neraseblocks;
-	unsigned blkpererase, nblocks, partsize = 0;
+	unsigned nbadblocks, blkpererase, nblocks, partsize = 0;	// **NEW**
+	// unsigned blkpererase, nblocks, partsize = 0;
 
-	int ret = px4_mtd_get_geometry(instance, &blocksize, &erasesize, &neraseblocks, &blkpererase, &nblocks, &partsize);
+	// int ret = px4_mtd_get_geometry(instance, &blocksize, &erasesize, &neraseblocks, &blkpererase, &nblocks, &partsize);
+	int ret = px4_mtd_get_geometry(instance, &blocksize, &erasesize, &neraseblocks, &nbadblocks, &blkpererase, &nblocks, &partsize);	// **NEW**
 
 	if (ret != OK) {
 		PX4_ERR("Failed to get geometry");
@@ -350,7 +373,14 @@ memoryout:
 			rv = at24xxx_attach(*instances[i]);
 
 		} else if (mtd_list->entries[num_entry]->device->bus_type == px4_mft_device_t::SPI) {
-			rv = ramtron_attach(*instances[i]);
+// #if defined(CONFIG_MTD_RAMTRON)
+			rv = spi_attach(*instances[i]);
+// #elif defined(CONFIG_MTD_W25N01)
+// 			rv = w25n01_attach(*instances[i]);
+// #else
+// 			PX4_ERR("Misconfiguration CONFIG_MTD_RAMTRON or CONFIG_MTD_W25N01 not set");
+// 			return -ENXIO;
+// #endif
 #if defined(HAS_FLEXSPI)
 
 		} else if (mtd_list->entries[num_entry]->device->bus_type == px4_mft_device_t::FLEXSPI) {
@@ -369,11 +399,13 @@ memoryout:
 		unsigned long blocksize;
 		unsigned long erasesize;
 		unsigned long neraseblocks;
+		unsigned int  nbadblocks;	// **NEW**
 		unsigned int  blkpererase;
 		unsigned int  nblocks;
 		unsigned int  partsize;
 
-		rv = px4_mtd_get_geometry(instances[i], &blocksize, &erasesize, &neraseblocks, &blkpererase, &nblocks, &partsize);
+		// rv = px4_mtd_get_geometry(instances[i], &blocksize, &erasesize, &neraseblocks, &blkpererase, &nblocks, &partsize);
+		rv = px4_mtd_get_geometry(instances[i], &blocksize, &erasesize, &neraseblocks, &nbadblocks, &blkpererase, &nblocks, &partsize);		// **NEW**
 
 		if (rv != 0) {
 			goto errout;

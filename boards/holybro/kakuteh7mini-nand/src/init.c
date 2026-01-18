@@ -65,37 +65,26 @@
 #include <arch/board/board.h>
 #include "arm_internal.h"
 
-#include <arch/chip/chip.h>
-#include <nuttx/spi/spi.h>
-
-// #include <nuttx/spi/qspi.h>
-// #include <nuttx/boards/arm/stm32h7/stm32h7_qspi.h>
-// #include <nuttx/mtd/mtd.h>
-
-// #include <nuttx/drivers/drivers.h>
-// #include <nuttx/fs/fs.h>
-// #include <nuttx/fs/fat.h>
-
-// #include <nuttx/arch/arm/src/stm32h7/stm32_qspi.h>
-
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_board_led.h>
 #include <systemlib/px4_macros.h>
 #include <px4_arch/io_timer.h>
 #include <px4_platform_common/init.h> // TODO: check if needed
 #include <px4_platform/gpio.h>
-#include <px4_platform/board_determine_hw_info.h>
 #include <px4_platform/board_dma_alloc.h>
+// #include <px4_platform/board_determine_hw_info.h>
 
+#include <px4_platform_common/px4_mtd.h>
 
-#include <mpu.h>
+#include <nuttx/drivers/drivers.h>
+#include <nuttx/mtd/mtd.h>
+#include <nuttx/fs/fs.h>
+// #include <nuttx/fs/nxffs.h>
+#include <sys/mount.h>
 
 # if defined(FLASH_BASED_PARAMS)
 #  include <parameters/flashparams/flashfs.h>
 #endif
-
-// #include "chip.h"
-// #include "stm32_qspi.h"
 
 /****************************************************************************
  * Pre-Processor Definitions
@@ -114,6 +103,7 @@ __BEGIN_DECLS
 extern void led_init(void);
 extern void led_on(int led);
 extern void led_off(int led);
+extern void led_blink(int led, float frequency, int duration_ms);	// debugging
 __END_DECLS
 
 
@@ -142,7 +132,8 @@ __EXPORT void board_peripheral_reset(int ms)
 __EXPORT void board_on_reset(int status)
 {
 	for (int i = 0; i < DIRECT_PWM_OUTPUT_CHANNELS; ++i) {
-		px4_arch_configgpio(PX4_MAKE_GPIO_INPUT(io_timer_channel_get_as_pwm_input(i)));
+		// px4_arch_configgpio(PX4_MAKE_GPIO_INPUT(io_timer_channel_get_as_pwm_input(i)));
+		px4_arch_configgpio(io_timer_channel_get_gpio_output(i));
 	}
 
 	/*
@@ -179,12 +170,12 @@ stm32_boardinitialize(void)
 	const uint32_t gpio[] = PX4_GPIO_INIT_LIST;
 	px4_gpio_init(gpio, arraySize(gpio));
 
-	board_control_spi_sensors_power_configgpio(); //?
+	// board_control_spi_sensors_power_configgpio(); //Initialize GPIO pins for all SPI bus power enable pins
 
 	/* Turn bluetooth off by default (no mavlink support yet) */
 	// px4_arch_gpiowrite(GPIO_RF_SWITCH, 0);
 
-	/* configure SPI interfaces */
+	// /* configure SPI interfaces */
 
 	stm32_spiinitialize();
 
@@ -192,8 +183,11 @@ stm32_boardinitialize(void)
 
 	stm32_usbinitialize();
 
-	/* configure QSPI interface for W25N01GV external Nand Flash memory */
-	// flash_w25n01_init();
+	/* configure external memory*/
+	// 	flash_w25n01_init();
+	// struct spi_dev_s *spi1 = stm32_spibus_initialize(1);
+	// UNUSED(spi1);
+
 }
 
 /****************************************************************************
@@ -209,7 +203,7 @@ stm32_boardinitialize(void)
  *         implementation without modification.  The argument has no
  *         meaning to NuttX; the meaning of the argument is a contract
  *         between the board-specific initalization logic and the the
- *         matching application logic.  The value cold be such things as a
+ *         matching application logic.  The value could be such things as a
  *         mode enumeration value, a set of DIP switch switch settings, a
  *         pointer to configuration data read from a file or serial FLASH,
  *         or whatever you would like to do with it.  Every implementation
@@ -224,8 +218,9 @@ stm32_boardinitialize(void)
 
 __EXPORT int board_app_initialize(uintptr_t arg)
 {
+    int ret;
 	/* Power on Interfaces */
-	board_control_spi_sensors_power(true, 0xffff);
+	// board_control_spi_sensors_power(true, 0xffff); //done in stm32_spiinitialize() below
 
 	/* Need hrt running before using the ADC */
 
@@ -233,7 +228,9 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 	/* configure SPI interfaces */
 
-	stm32_spiinitialize();
+	// stm32_spiinitialize();
+
+	// board_spi_reset(10, 0xffff);    //TODO what it does here?
 
 	/* configure the DMA allocator */
 
@@ -245,25 +242,97 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	// set up the serial DMA polling at 1ms intervals for received bytes that have not triggered a DMA event.
 	static struct hrt_call serial_dma_call;
 	hrt_call_every(&serial_dma_call, 1000, 1000, (hrt_callout)stm32_serial_dma_poll, NULL);
-#endif
+#endif /*  */
 
 	/* initial LED state */
 	drv_led_start();
-	led_off(LED_RED);
+	led_off(GPIO_nLED_BLUE);    // TODO: change to LED_BLUE?
+	// led_off(GPIO_nLED_BLUE);
+	// led_off(LED_GREEN);
+
+	// debugging
+	led_blink(GPIO_nLED_BLUE, 1, 3000); // 1Hz, 3000ms
+    // led_on(GPIO_nLED_BLUE);
+	// up_mdelay(1000);
+
 
 	if (board_hardfault_init(2, true) != 0) {
-		led_on(LED_RED);
+		led_on(GPIO_nLED_BLUE);
 	}
 
-	/* Get the SPI port for the IMU */
-	struct spi_dev_s *spi4 = stm32_spibus_initialize(4);
 
-	if (!spi4) {
-		syslog(LOG_ERR, "[boot] FAILED to initialize SPI port %d\n", 4);
-		led_on(LED_BLUE);
-	}
+	/* Get the SPI port for the W25N NAND flash
+     * bus=1 for SPI1 */
+	// struct spi_dev_s *spi1 = stm32_spibus_initialize(1);
 
-	up_udelay(20);
+	// if (!spi1) {
+	// 	syslog(LOG_ERR, "[boot] FAILED to initialize SPI port %d\n", 1);
+	// 	// led_on(GPIO_nLED_BLUE);
+	// 	led_blink(GPIO_nLED_BLUE, 2, 2000);
+	// 	return -ENODEV;
+	// }
+
+	// up_udelay(20);
+
+    /* automount the w25n01 nand flash on "/fs/nand" */
+    //TODO: replace below by creating w25n01_nand.c and add it to CMakeLists.txt
+//     struct mtd_dev_s *mtd;
+
+// 	// Create and initialize an NAND MTD device
+// #if defined(CONFIG_MTD_W25N01)
+// 	mtd = w25n01_initialize(spi1, 0); // use my driver
+// #else
+// 	mtd = w25n_initialize(spi1, 0); // use Julian Oes driver
+// #endif /* CONFIG_MTD_W25N */
+// 	if (!mtd) {
+// 		ferr("ERROR: Failed to create the NAND driver on devid %d\n", 0);
+// 		// led_on(GPIO_nLED_BLUE);
+// 		led_blink(GPIO_nLED_BLUE, 2, 3000);
+// 		return -ENODEV;
+// 	}
+
+
+	/* Use the FTL layer to wrap the MTD driver as a block driver */
+	// ret = ftl_initialize(0, mtd); // NAND_MINOR = 0
+	// if (ret < 0)
+	// {
+	// 	ferr("ERROR: Failed to initialize the FTL layer: %d\n", ret);
+	// 	led_on(GPIO_nLED_BLUE);
+	// 	return ret;
+	// }
+
+	/* Mount the FAT volume on /fs/nand */
+	// ret = mount(NULL, "/fs/microsd", "ftl", 0, NULL);
+
+	// if (ret < 0)
+	// {
+	// 	ferr("ERROR: Failed to mount the FTL volume: %d\n", ret);
+	// 	led_on(GPIO_nLED_BLUE);
+	// 	return ret;
+	// }
+
+	// Use NXFFS: Initialize to provide NXFFS on the MTD interface
+	// ret = nxffs_initialize(mtd);
+	// if (ret < 0)
+	// {
+	// 	ferr("ERROR: NXFFS initialization failed: %d\n", ret);
+	// 	// led_blink(GPIO_nLED_BLUE, 2, 3000);
+	// 	led_on(GPIO_nLED_BLUE);
+	// 	up_mdelay(2000);
+	// 	return ret;
+	// }
+
+	// Mount the file system at /fs/nand
+	// ret = nx_mount(NULL, "/mnt/nand", "nxffs", 0, NULL);
+	// if (ret < 0)
+	// {
+	// 	ferr("ERROR: Failed to mount the NXFFS volume: %d\n", ret);
+	// 	led_on(GPIO_nLED_BLUE);
+	// 	return ret;
+	// }
+
+
+
 
 	// TODO cf RM0433 p130 for memory map
 	// QUADSPI: 0x90000000 - 0x9FFFFFFF
@@ -272,72 +341,6 @@ __EXPORT int board_app_initialize(uintptr_t arg)
     // TODO: px4/common/px4_mtd.cpp ramtron_attach() ...
     // TODO: vs
     // TODOvs nuttx example: nuttx/boards/arm/stm32/stm32f429i-disco/src/stm32_bringup.c ...
-// #if defined(CONFIG_STM32H7_QUADSPI) && defined(CONFIG_MTD) && defined(CONFIG_MTD_W25N01GV)
-//     struct qspi_dev_s *qspi;
-//   	/* Get the SPI port */
-//     syslog(LOG_INFO, "[boot] Initializing QuadSPI port 0\n");
-//     qspi = stm32h7_qspi_initialize(0);
-//     if (!qspi) {
-//         syslog(LOG_ERR, "[boot] ERROR: Failed to initialize SPI port 1\n");
-// 		led_on(LED_BLUE);
-//         // return -ENODEV;
-//     } else {
-// 		struct mtd_dev_s *mtd;
-//         syslog(LOG_INFO, "[boot] Binding QSPI to the W25N01GV MTD driver\n");
-
-//         mtd = w25n01gv_initialize(qspi, true);
-
-// 		if (!mtd) {
-//             syslog(LOG_ERR, "[boot] ERROR: Failed to bind QSPI port 0 to the W25N01GV MTD driver\n");
-//             led_on(LED_BLUE);
-//         } else {
-//             syslog(LOG_INFO, "[boot] Successfully bound QSPI port 0 to the W25N01GV MTD driver\n");
-
-//             /* Initialize FTL */
-//             int ret = ftl_initialize(0, mtd);
-//             if (ret < 0) {
-//                 syslog(LOG_ERR, "[boot] ERROR: Failed to initialize the FTL layer: %d\n", ret);
-//                 led_on(LED_BLUE);
-//             }
-//         }
-//     }
-// #endif /* CONFIG_STM32H7_QUADSPI && CONFIG_MTD && CONFIG_MTD_W25N01GV */
-
-
-		// syslog(LOG_INFO, "[boot] Successfully initialized SPI port 1\n");
-//     syslog(LOG_INFO, "[boot] Bind SPI to the SPI flash driver\n");
-    /* Now bind the SPI interface to the W25n01GV SPI FLASH driver.  This
-   * is a FLASH device that has been added external to the board (i.e.
-   * the board does not ship from STM with any on-board FLASH.
-   */
-// #if defined(CONFIG_MTD) && defined(CONFIG_MTD_W25N01GV)
-//     struct mtd_dev_s *mtd;
-//     syslog(LOG_INFO, "Bind SPI to the SPI flash driver\n");
-
-//     mtd = w25n01gv_initialize(qspi, true);
-//     if (!mtd) {
-//         syslog(LOG_ERR, "[boot] ERROR: Failed to bind SPI port 1 to the SPI FLASH driver\n");
-//     } else {
-//         syslog(LOG_INFO, "[boot] Successfully bound SPI port 1 to the SPI FLASH driver\n");
-//         /* Get the geometry of the FLASH device */
-//         // ret = mtd->ioctl(mtd, MTDIOC_GEOMETRY, (unsigned long)((uintptr_t)&geo));
-//         // if (ret < 0) {
-//         //     ferr("ERROR: mtd->ioctl failed: %d\n", ret);
-//         //     return ret;
-//         // }
-// 	}
-
-// 	// FTL initialization
-//     int ret = OK;
-//     ret = ftl_initialize(0, mtd);
-//     if (ret < 0) {
-// 		syslog(LOG_ERR, "ERROR: Failed to initialize the FTL layer\n");
-// 		return ret;
-// 	}
-
-// #endif /* CONFIG_MTD */
-// #endif /* CONFIG_STM32H7_QUADSPI */
-
 
 #if defined(FLASH_BASED_PARAMS)
 	static sector_descriptor_t params_sector_map[] = {
@@ -350,7 +353,8 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 	if (result != OK) {
 		syslog(LOG_ERR, "[boot] FAILED to init params in FLASH %d\n", result);
-		led_on(LED_AMBER);
+		// led_on(GPIO_nLED_BLUE);
+		led_blink(GPIO_nLED_BLUE, 2, 3000);
 	}
 
 #endif
@@ -359,5 +363,10 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 	px4_platform_configure();
 
+	led_blink(GPIO_nLED_BLUE, 1, 2000);
+	// led_on(GPIO_nLED_BLUE);
+	// up_mdelay(1000);
+
+ 	UNUSED(ret);
 	return OK;
 }

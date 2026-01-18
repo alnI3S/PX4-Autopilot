@@ -54,6 +54,7 @@ extern void led_init(void);
 extern void led_on(int led);
 extern void led_off(int led);
 extern void led_toggle(int led);
+extern void led_blink(int led, float frequency, int duration_ms);	// debugging
 __END_DECLS
 
 #ifdef CONFIG_ARCH_LEDS
@@ -70,7 +71,7 @@ static uint32_t g_ledmap[] = {
 
 #  define xlat(p) (p)
 static uint32_t g_ledmap[] = {
-	GPIO_nLED_RED,                      // Indexed by LED_RED, LED_AMBER
+	GPIO_nLED_BLUE,                       // Indexed by LED_BLUE
 };
 
 #endif
@@ -116,6 +117,18 @@ __EXPORT void led_off(int led)
 __EXPORT void led_toggle(int led)
 {
 	phy_set_led(xlat(led), !phy_get_led(xlat(led)));
+}
+
+__EXPORT void led_blink(int led, float frequency, int duration_ms)
+{
+	int half_period_ms = (int)(500.0f / frequency);
+	int elapsed_ms = 0;
+
+	while (elapsed_ms < duration_ms) {
+		led_toggle(led);
+		up_mdelay(half_period_ms);
+		elapsed_ms += half_period_ms;
+	}
 }
 
 #ifdef CONFIG_ARCH_LEDS
@@ -169,16 +182,18 @@ void board_autoled_on(int led)
 		break;
 
 	case LED_ASSERTION:
-		phy_set_led(BOARD_LED_RED, true);
+		// phy_set_led(BOARD_LED_RED, true);
 		phy_set_led(BOARD_LED_BLUE, true);
 		break;
 
 	case LED_PANIC:
-		phy_set_led(BOARD_LED_RED, true);
+		// phy_set_led(BOARD_LED_RED, true);
+		led_toggle(BOARD_LED_BLUE);
 		break;
 
 	case LED_IDLE : /* IDLE */
-		phy_set_led(BOARD_LED_RED, true);
+		// phy_set_led(BOARD_LED_RED, true);
+		led_toggle(BOARD_LED_GREEN);
 		break;
 	}
 }
@@ -206,16 +221,16 @@ void board_autoled_off(int led)
 		break;
 
 	case LED_ASSERTION:
-		phy_set_led(BOARD_LED_RED, false);
+		// phy_set_led(BOARD_LED_RED, false);
 		phy_set_led(BOARD_LED_BLUE, false);
 		break;
 
 	case LED_PANIC:
-		phy_set_led(BOARD_LED_RED, false);
+		phy_set_led(BOARD_LED_BLUE, false);
 		break;
 
 	case LED_IDLE : /* IDLE */
-		phy_set_led(BOARD_LED_RED, false);
+		phy_set_led(BOARD_LED_GREEN, false);
 		break;
 	}
 }

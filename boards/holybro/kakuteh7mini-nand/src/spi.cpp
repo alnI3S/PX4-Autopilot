@@ -37,10 +37,10 @@
 
 constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
 	initSPIBus(SPI::Bus::SPI1, {
-		initSPIDevice(SPIDEV_MMCSD(0), SPI::CS{GPIO::PortA, GPIO::Pin4})
+		initSPIDevice(SPIDEV_FLASH(0), SPI::CS{GPIO::PortA, GPIO::Pin4})
 	}),
 	initSPIBus(SPI::Bus::SPI2, {
-		initSPIDevice(DRV_OSD_DEVTYPE_ATXXXX, SPI::CS{GPIO::PortB, GPIO::Pin12}),
+		initSPIDevice(DRV_OSD_DEVTYPE_ATXXXX, SPI::CS{GPIO::PortB, GPIO::Pin12})
 	}),
 	initSPIBus(SPI::Bus::SPI4, {
 		//<V1.1 have the mpu6000, v1.3 have a BMI270, v1.5 have a ICM42688P

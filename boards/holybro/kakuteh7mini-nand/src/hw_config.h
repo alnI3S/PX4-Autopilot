@@ -69,14 +69,14 @@
 
 //#define USE_VBUS_PULL_DOWN
 #define BOOT_DELAY_ADDRESS             0x000001a0
-#define BOARD_TYPE                     1059
+#define BOARD_TYPE                     1058
 #define BOARD_FLASH_SECTORS            (14)
 #define BOARD_FLASH_SIZE               (16 * 128 * 1024)
 #define APP_RESERVATION_SIZE           (1 * 128 * 1024)
 
 #define OSC_FREQ                       8
 
-#define BOARD_PIN_LED_ACTIVITY         GPIO_nLED_RED
+#define BOARD_PIN_LED_ACTIVITY         GPIO_nLED_BLUE // BLUE
 #define BOARD_LED_ON                   0
 #define BOARD_LED_OFF                  1
 

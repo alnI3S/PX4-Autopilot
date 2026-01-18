@@ -94,11 +94,13 @@ static int mtd_status(void)
 				unsigned long blocksize;
 				unsigned long erasesize;
 				unsigned long neraseblocks;
+				unsigned int  nbadblocks;	// **NEW**
 				unsigned int  blkpererase;
 				unsigned int  nblocks;
 				unsigned int  partsize;
 
-				ret = px4_mtd_get_geometry(instances[i], &blocksize, &erasesize, &neraseblocks, &blkpererase, &nblocks, &partsize);
+				// ret = px4_mtd_get_geometry(instances[i], &blocksize, &erasesize, &neraseblocks, &blkpererase, &nblocks, &partsize);
+				ret = px4_mtd_get_geometry(instances[i], &blocksize, &erasesize, &neraseblocks, &nbadblocks, &blkpererase, &nblocks, &partsize);	// **NEW**
 
 				if (ret == 0) {
 
@@ -107,6 +109,7 @@ static int mtd_status(void)
 					printf("  blocksize:      %lu\n", blocksize);
 					printf("  erasesize:      %lu\n", erasesize);
 					printf("  neraseblocks:   %lu\n", neraseblocks);
+					printf("  nbadblocks:     %u\n", nbadblocks);	// **NEW**
 					printf("  No. partitions: %u\n", instances[i]->n_partitions_current);
 
 

@@ -69,9 +69,13 @@ __EXPORT mtd_instance_s **px4_mtd_get_instances(unsigned int *count);
  */
 
 
+// __EXPORT int  px4_mtd_get_geometry(const mtd_instance_s *instance, unsigned long *blocksize, unsigned long *erasesize,
+// 				   unsigned long *neraseblocks, unsigned *blkpererase, unsigned *nblocks,
+// 				   unsigned *partsize);
 __EXPORT int  px4_mtd_get_geometry(const mtd_instance_s *instance, unsigned long *blocksize, unsigned long *erasesize,
-				   unsigned long *neraseblocks, unsigned *blkpererase, unsigned *nblocks,
+				   unsigned long *neraseblocks, unsigned *nbadblocks, unsigned *blkpererase, unsigned *nblocks,
 				   unsigned *partsize);
+
 /*
   Get size of a parttion on an instance.
  */

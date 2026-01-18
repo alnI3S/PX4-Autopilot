@@ -59,14 +59,29 @@
 #  define BOARD_HAS_NBAT_V              1
 #  define BOARD_HAS_NBAT_I              1
 
-/* Holybro KakuteH7 GPIOs ************************************************************************/
+/* Holybro KakuteH7 Minin Nand GPIOs ****************************************************************/
 
 /* LEDs are driven with push open drain to support Anode to 5V or 3.3V */
 
-#define GPIO_nLED_RED        /* PC2 */  (GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_SET|GPIO_PORTC|GPIO_PIN2)
+#define GPIO_nLED_BLUE        /* PC2 */  (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTC|GPIO_PIN2)
+
+// It seems that the green Led is not controllable, it is probably hardwired to indicate
+// some power status
+// #define GPIO_nLED_GREEN        /* PC3 ? */  (GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_SET|GPIO_PORTC|GPIO_PIN3)
+// if PC3 is not available, maybe try :
+// PC13, PA1, PA3,
+// PE3,
+// PE0, PC4,
+// PB5, PB2, PE8, PE9
+// PD7, PE10, PE11, PE12, PE13
+// PD2, PD3, PD4, PE14, PE15
+// PA15, PC11, PC12, PD15, PD14
+// PC10, PA8, PD11, PD10,
+// PD13?
 
 #define BOARD_HAS_CONTROL_STATUS_LEDS      1
-#define BOARD_OVERLOAD_LED     LED_RED
+#define BOARD_OVERLOAD_LED     LED_BLUE
+#define BOARD_ARMED_STATE_LED  LED_BLUE
 
 /*
  * ADC channels
@@ -120,7 +135,7 @@
 #define GPIO_OTGFS_VBUS         /* PA8 */ (GPIO_INPUT|GPIO_PULLDOWN|GPIO_SPEED_100MHz|GPIO_PORTA|GPIO_PIN8)
 
 /* High-resolution timer */
-#define HRT_TIMER               4  /* use timer3 for the HRT */
+#define HRT_TIMER               4  /* use timer4 for the HRT */
 #define HRT_TIMER_CHANNEL       1  /* use capture/compare channel 1 */
 
 // So we can run CRSF on ttyS4, which corresponds to the TX6/RX6 pins
