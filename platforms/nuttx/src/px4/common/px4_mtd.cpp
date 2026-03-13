@@ -430,9 +430,10 @@ memoryout:
 				rv = -ENOSPC;
 				goto errout;
 			}
-
+#if defined(CONFIG_MTD_RAMTRON)
 			/* Initialize to provide an FTL block driver on the MTD FLASH interface */
 
+			/* name a mtd block driver */
 			snprintf(blockname, sizeof(blockname), "/dev/mtdblock%d", total_blocks);
 
 			rv = ftl_initialize(total_blocks, instances[i]->part_dev[part]);
@@ -452,6 +453,18 @@ memoryout:
 				PX4_ERR("bchdev_register %s failed: %d", instances[i]->partition_names[part], rv);
 				goto errout;
 			}
+#else
+			UNUSED(total_blocks);
+			UNUSED(blockname);
+
+			/* Init param partition */
+			rv = register_mtddriver(instances[i]->partition_names[part], instances[i]->part_dev[part], 0755, NULL);
+			if (rv < 0) {
+				PX4_ERR("register_mtddriver %s failed: %d", instances[i]->partition_names[part], rv);
+				goto errout;
+			}
+#endif
+
 
 			instances[i]->n_partitions_current++;
 		}
